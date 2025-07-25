@@ -1,102 +1,281 @@
+"""Groceries: Extract Trello list items and create Google Keep notes.
+
+This module provides functionality to extract items from specified lists in a
+Trello board and create organized Google Keep notes. It's designed to help
+manage grocery lists and shopping tasks by transferring items from Trello
+boards to Google Keep for easier mobile access.
+
+The module supports:
+- Trello API integration for extracting list items
+- Google Keep API integration with service account authentication
+- Domain-wide delegation for Google Workspace environments
+- Flexible configuration via command-line options
+
+Example usage:
+    python -m groceries.main Lidl Carrefour "Whole Foods"
+
+Author: Antoine Martin (antoine.martin@octave.biz)
+"""
+
 import json
-import csv
+import pathlib
+from typing import Any
+
 import click
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+from .trello import TrelloClient
+
+# Scopes required for Google Keep
+SCOPES = ["https://www.googleapis.com/auth/keep"]
+DEFAULT_CREDENTIALS_PATH = pathlib.Path("credentials.json")
+DEFAULT_IMPERSONATED_USER_EMAIL = "antoine@openance.com"
 
 
-@click.command()
-@click.argument("json_file", type=click.Path(exists=True))
-@click.argument("lists", nargs=-1)
-def old(json_file, lists):
+def get_keep_service(
+    credentials_path: pathlib.Path = DEFAULT_CREDENTIALS_PATH,
+    impersonated_user_email: str = DEFAULT_IMPERSONATED_USER_EMAIL,
+):
+    """Authenticate and return the Google Keep service.
+
+    This function creates a Google Keep service client using service account
+    credentials with domain-wide delegation to impersonate a specific user.
+
+    Args:
+        credentials_path: Path to the Google service account credentials JSON file.
+            The file should contain private key information for a service account
+            that has been granted domain-wide delegation.
+        impersonated_user_email: Email address of the user to impersonate when
+            accessing Google Keep. The service account must have domain-wide
+            delegation permissions for this user's domain.
+
+    Returns:
+        A Google Keep service client object that can be used to interact with
+        the Google Keep API.
+
+    Raises:
+        google.auth.exceptions.DefaultCredentialsError: If the credentials file
+            is invalid or cannot be loaded.
+        googleapiclient.errors.HttpError: If the API client cannot be built.
     """
-    Export cards from the given lists from a Trello JSON export to a CSV file.
+    creds = service_account.Credentials.from_service_account_file(
+        credentials_path, scopes=SCOPES, subject=impersonated_user_email
+    )
 
-    JSON_FILE: Trello export file.
-    LISTS: Names of lists to export (e.g. Lidl Carrefour)
+    return build("keep", "v1", credentials=creds)
+
+
+def extract_list_items(
+    trello_board_id: str, lists: list[str], credentials_path: pathlib.Path = DEFAULT_CREDENTIALS_PATH
+) -> dict[str, list[str]] | None:
+    """Extract list items from a Trello board.
+
+    This function connects to the Trello API using credentials from a JSON file,
+    fetches data from a specified board, and extracts card names from the
+    specified lists.
+
+    Args:
+        trello_board_id: The unique identifier for the Trello board to extract
+            items from. This can be found in the board's URL.
+        lists: A list of Trello list names to extract cards from. The names
+            are case-insensitive and will be matched against existing list names
+            on the board.
+        credentials_path: Path to the credentials JSON file containing Trello
+            API credentials. The file should have a 'trello' key with 'api_key'
+            and 'token' subkeys.
+
+    Returns:
+        A dictionary mapping list names (lowercase) to lists of card names from
+        those lists. Returns None if there's an error (missing credentials file,
+        invalid credentials structure, or invalid board data).
+
+    Example:
+        >>> extract_list_items("abc123", ["Shopping", "Todo"])
+        {"shopping": ["Milk", "Bread"], "todo": ["Call dentist"]}
     """
-    # Read JSON file
-    with open(json_file, "r", encoding="utf-8") as f:
-        data = json.load(f)
 
-    # Check for actions in the file
-    if "actions" not in data:
-        click.echo("Error: JSON file does not contain actions.")
-        return
+    # Read the JSON file credentials_path
+    if not credentials_path.exists():
+        click.echo(f"Error: Credentials file {credentials_path} does not exist.")
+        return None
 
-    # Get list names and associated cards
-    cards = []
-    for action in data["actions"]:
-        if action["type"] == "createCard" and "list" in action["data"]:
-            list_name = action["data"]["list"]["name"]
-            if list_name.lower() in [l.lower() for l in lists]:
-                card_name = action["data"]["card"]["name"]
-                cards.append({"list": list_name, "item": card_name})
+    with open(credentials_path, "r", encoding="utf-8") as f:
+        credentials_data = json.load(f)
 
-    if not cards:
-        click.echo("No cards found in the specified lists.")
-        return
+    # get the API key, token, and board ID from the credentials file
+    if "trello" not in credentials_data:
+        click.echo("Error: Trello credentials not found in the credentials file.")
+        return None
+    trello = credentials_data["trello"]
+    api_key = trello.get("api_key")
+    token = trello.get("token")
 
-    # Output file name
-    csv_file = "courses_export.csv"
-
-    # Write to CSV
-    with open(csv_file, "w", newline="", encoding="utf-8") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=["list", "item"])
-        writer.writeheader()
-        writer.writerows(cards)
-
-    click.echo(f"{len(cards)} items exported to {csv_file}.")
-
-
-@click.command()
-@click.argument("json_file", type=click.Path(exists=True))
-@click.argument("lists", nargs=-1)
-def main(json_file, lists):
-    """
-    Generate a Google Keep note with checkboxes from a Trello JSON export.
-    Order of lists: Lidl first, then Carrefour.
-    """
-    with open(json_file, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    client = TrelloClient(api_key, token)
+    data = client.get_board_data(trello_board_id)
 
     lists = [name.lower() for name in lists]
 
     if "cards" not in data:
         click.echo("Error: Invalid JSON file.")
-        return
+        return None
 
-    list_items = {name: [] for name in lists}
+    list_items: dict[str, list[str]] = {name: [] for name in lists}
 
-    list_id_to_name = {
-        it["id"]: it["name"].lower()
-        for it in data["lists"]
-        if it["name"].lower() in lists and not it["closed"]
-    }
+    list_id_to_name = {it["id"]: it["name"].lower() for it in data["lists"] if it["name"].lower() in lists}
     list_ids = list(list_id_to_name.keys())
 
     for card in data["cards"]:
-        if card["idList"] in list_ids and not card["closed"]:
+        if card["idList"] in list_ids:
             list_name = list_id_to_name.get(card["idList"])
             if list_name and list_name in lists:
                 card_name = card["name"]
                 list_items[list_name].append(card_name)
+    return list_items
+
+
+def create_google_keep_note(service, note_title: str, list_items: dict[str, list[str]]) -> Any:
+    """Create a Google Keep note with organized list items.
+
+    This function takes extracted Trello list items and creates a formatted
+    Google Keep note. Each list becomes a section in the note with its name
+    in uppercase, followed by the items from that list.
+
+    Args:
+        service: An authenticated Google Keep service client object, typically
+            obtained from get_keep_service().
+        note_title: The title to give the created Google Keep note.
+        list_items: A dictionary mapping list names to lists of item names.
+            Each key represents a list/section name, and each value is a list
+            of items for that section.
+
+    Returns:
+        The created note object returned by the Google Keep API.
+
+    Raises:
+        googleapiclient.errors.HttpError: If the note creation fails due to
+            API errors or insufficient permissions.
+
+    Note:
+        The function creates a text note rather than a checklist note to make
+        reordering items easier in Google Keep. A commented implementation
+        for checkbox-style notes is available in the source code.
+    """
 
     # Generate the note content
     note_lines = []
-    for list_name in lists:
-        items = list_items.get(list_name, [])
-        if items:
+    for list_name in list_items.keys():
+        section_items = list_items.get(list_name, [])
+        if section_items:
             note_lines.append(f"{list_name.upper()}")
-            for item in items:
+            for item in section_items:
                 note_lines.append(f"{item}")
             note_lines.append("")  # empty line
 
-    note_text = "\n".join(note_lines)
+    # This code is to create a note with checkboxes. However, it's easier to
+    # reorder text notes than checkboxes in Google Keep.
+    # This is kept if at some point Trello knows the order somehow.
+    # items = []
+    # for store in list_items.keys():
+    #     items.append({"text": f"===== {store.upper()} =====", "checked": False})
+    #     for item in list_items[store]:
+    #         items.append({"text": item, "checked": False})
 
-    # Write to a text file
-    with open("courses_keep_note.txt", "w", encoding="utf-8") as f:
-        f.write(note_text)
+    # Create the note body
+    # body = {
+    #     "title": note_title,
+    #     "body": {"list": {"listItems": [{"text": {"text": i["text"]}, "checked": i["checked"]} for i in items]}},
+    # }
 
-    click.echo("Google Keep note generated in 'courses_keep_note.txt'.")
+    body = {
+        "title": note_title,
+        "body": {"text": {"text": "\n".join(note_lines)}},
+    }
+
+    result = service.notes().create(body=body).execute()
+    return result
+
+
+@click.command()
+@click.option(
+    "--credentials",
+    type=click.Path(exists=True, path_type=pathlib.Path),
+    default=DEFAULT_CREDENTIALS_PATH,
+    help="Path to Google API credentials file.",
+)
+@click.option(
+    "--trello-board-id",
+    type=str,
+    default="iVKNyGyE",
+    help="Trello board ID to extract items from.",
+)
+@click.option(
+    "--title",
+    type=str,
+    default="Shopping List",
+    help="Title of the Google Keep note.",
+)
+@click.option(
+    "--impersonated-user-email",
+    type=str,
+    default=DEFAULT_IMPERSONATED_USER_EMAIL,
+    help="Email address of the user to impersonate.",
+)
+@click.argument("list_items", nargs=-1)
+def main(
+    trello_board_id: str,
+    title: str,
+    impersonated_user_email: str,
+    list_items: list[str],
+    credentials: pathlib.Path,
+):
+    """Extract items from Trello lists and create a Google Keep note.
+
+    This command extracts items from specified Trello lists and creates
+    a formatted Google Keep note. Specify list names as arguments.
+
+    Example: uv run groceries Lidl Carrefour "Whole Foods"
+    """
+    _execute_main(trello_board_id, title, impersonated_user_email, list_items, credentials)
+
+
+def _execute_main(
+    trello_board_id: str,
+    title: str,
+    impersonated_user_email: str,
+    list_items: list[str],
+    credentials: pathlib.Path,
+):
+    """Execute the main application logic.
+
+    This is the main entry point for the application logic. It orchestrates the
+    process of extracting items from specified Trello lists and creating
+    a formatted Google Keep note with those items.
+
+    Args:
+        trello_board_id: The unique identifier for the Trello board.
+        title: The title for the created Google Keep note.
+        impersonated_user_email: Email address of the user to impersonate
+            when creating the Google Keep note.
+        list_items: A tuple of list names to extract from the Trello board.
+        credentials: Path to the credentials JSON file containing both
+            Trello API credentials and Google service account credentials.
+
+    The function will:
+    1. Extract items from the specified Trello lists
+    2. Print the extracted items as JSON to stdout
+    3. Create a Google Keep note with the extracted items
+    4. Print the created note's ID
+
+    Raises:
+        AssertionError: If the item extraction from Trello fails.
+        Various API errors: If Google Keep note creation fails.
+    """
+    items = extract_list_items(trello_board_id, list_items, credentials_path=credentials)
+    assert items is not None, "Failed to extract items from Trello."
+    keep_service = get_keep_service(credentials_path=credentials, impersonated_user_email=impersonated_user_email)
+    note = create_google_keep_note(keep_service, title, items)
+    click.secho(f'Google Keep note created: "{note.get("title")}" ({note.get("name")})', fg="green")
 
 
 if __name__ == "__main__":
