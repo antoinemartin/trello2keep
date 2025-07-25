@@ -141,9 +141,11 @@ if __name__ == "__main__":
         - Board ID can be found in your Trello board URL
     """
     # Set your credentials (preferably from environment variables)
-    API_KEY = "a947b9efafb4b833d41b6ba4a798f168"
-    TOKEN = "ATT..."  # nosec
-    BOARD_ID = "iVKNyGyE"  # From your URL
+    import os
+
+    API_KEY = os.getenv("TRELLO_API_KEY", "your_api_key_here")
+    TOKEN = os.getenv("TRELLO_TOKEN", "your_token_here")
+    BOARD_ID = os.getenv("TRELLO_BOARD_ID", "iVKNyGyE")
 
     client = TrelloClient(API_KEY, TOKEN)
     client.export_to_json(BOARD_ID)

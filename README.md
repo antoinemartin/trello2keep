@@ -133,11 +133,28 @@ accessing both the Trello API and Google Keep API.
 
 ### Trello API Setup
 
-The API key is `a947b9efafb4b833d41b6ba4a798f168`.
+To obtain your Trello API credentials, follow these steps:
 
-The token should be obtained by following this link:
+1. **Get your API Key**: Visit the
+   [Trello Power-Ups Admin page](https://trello.com/power-ups/admin) and create
+   a new Power-Up to generate your API key.
 
-https://trello.com/1/authorize?expiration=never&scope=read&response_type=token&key=a947b9efafb4b833d41b6ba4a798f168
+2. **Generate a Token**: Once you have your API key, authorize the application
+   by visiting the following URL (replace `<your_api_key>` with your actual API
+   key):
+
+    ```
+    https://trello.com/1/authorize?expiration=never&scope=read&response_type=token&key=<your_api_key>
+    ```
+
+3. **Authorize Access**: Click "Allow" to grant read access to your Trello
+   boards. The token will be displayed on the resulting page.
+
+4. **Save Credentials**: Copy both the API key and token to use in your
+   `credentials.json` file.
+
+> **Note**: The token is set to never expire and only requires read access to
+> your boards, ensuring minimal permissions while maintaining functionality.
 
 After authorizing the application, you will receive a token that should be
 placed in the `credentials.json` file under the `trello` key.
@@ -169,7 +186,7 @@ Your `credentials.json` file should look like this:
 ```json
 {
     "trello": {
-        "api_key": "a947b9efafb4b833d41b6ba4a798f168",
+        "api_key": "your_api_key",
         "token": "ATT..."
     },
     "type": "service_account",
