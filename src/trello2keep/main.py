@@ -1,8 +1,8 @@
-"""Groceries: Extract Trello list items and create Google Keep notes.
+"""trello2keep: Extract Trello list items and create Google Keep notes.
 
 This module provides functionality to extract items from specified lists in a
 Trello board and create organized Google Keep notes. It's designed to help
-manage grocery lists and shopping tasks by transferring items from Trello
+manage shopping lists and other tasks by transferring items from Trello
 boards to Google Keep for easier mobile access.
 
 The module supports:
@@ -12,7 +12,7 @@ The module supports:
 - Flexible configuration via command-line options
 
 Example usage:
-    python -m groceries.main Lidl Carrefour "Whole Foods"
+    python -m trello2keep.main Lidl Carrefour "Whole Foods"
 
 Author: Antoine Martin (antoine.martin@octave.biz)
 """
@@ -134,7 +134,9 @@ def extract_list_items(
     return list_items
 
 
-def create_google_keep_note(service, note_title: str, list_items: dict[str, list[str]]) -> dict[str, Any]:
+def create_google_keep_note(
+    service, note_title: str, list_items: dict[str, list[str]], text_only: bool = False
+) -> dict[str, Any]:
     """Create a Google Keep note with organized list items.
 
     This function takes extracted Trello list items and creates a formatted
@@ -163,34 +165,35 @@ def create_google_keep_note(service, note_title: str, list_items: dict[str, list
     """
 
     # Generate the note content
-    note_lines = []
-    for list_name in list_items.keys():
-        section_items = list_items.get(list_name, [])
-        if section_items:
-            note_lines.append(f"{list_name.upper()}")
-            for item in section_items:
-                note_lines.append(f"{item}")
-            note_lines.append("")  # empty line
+    if text_only:
+        note_lines = []
+        for list_name in list_items.keys():
+            section_items = list_items.get(list_name, [])
+            if section_items:
+                note_lines.append(f"{list_name.upper()}")
+                for item in section_items:
+                    note_lines.append(f"{item}")
+                note_lines.append("")  # empty line
+        body = {
+            "title": note_title,
+            "body": {"text": {"text": "\n".join(note_lines)}},
+        }
+    else:
+        items = []
+        for list_name in list_items.keys():
+            items.append(
+                {
+                    "text": {"text": f"{list_name.upper()}"},
+                    "checked": False,
+                    "childListItems": [{"text": {"text": item}, "checked": False} for item in list_items[list_name]],
+                }
+            )
 
-    # This code is to create a note with checkboxes. However, it's easier to
-    # reorder text notes than checkboxes in Google Keep.
-    # This is kept if at some point Trello knows the order somehow.
-    # items = []
-    # for store in list_items.keys():
-    #     items.append({"text": f"===== {store.upper()} =====", "checked": False})
-    #     for item in list_items[store]:
-    #         items.append({"text": item, "checked": False})
-
-    # Create the note body
-    # body = {
-    #     "title": note_title,
-    #     "body": {"list": {"listItems": [{"text": {"text": i["text"]}, "checked": i["checked"]} for i in items]}},
-    # }
-
-    body = {
-        "title": note_title,
-        "body": {"text": {"text": "\n".join(note_lines)}},
-    }
+        # Create the note body
+        body = {
+            "title": note_title,
+            "body": {"list": {"listItems": items}},
+        }
 
     result = service.notes().create(body=body).execute()
     return result
@@ -201,48 +204,57 @@ def create_google_keep_note(service, note_title: str, list_items: dict[str, list
     "--credentials",
     type=click.Path(exists=True, path_type=pathlib.Path),
     default=DEFAULT_CREDENTIALS_PATH,
-    help="Path to Google API credentials file.",
-)
-@click.option(
-    "--trello-board-id",
-    type=str,
-    default="iVKNyGyE",
-    help="Trello board ID to extract items from.",
+    show_default=True,
+    help="Path to credentials file.",
 )
 @click.option(
     "--title",
     type=str,
-    default="Shopping List",
-    help="Title of the Google Keep note.",
+    help="Title of the Google Keep note. Name of the Trello board will be used if not specified.",
 )
 @click.option(
     "--impersonated-user-email",
     type=str,
     default=DEFAULT_IMPERSONATED_USER_EMAIL,
+    show_default=True,
     help="Email address of the user to impersonate.",
+)
+@click.option(
+    "--text/--no-text",
+    default=False,
+    help="Create a text note instead of a checklist note. Default is False (checklist note).",
+    show_default=False,
+)
+@click.argument(
+    "trello_board",
+    type=str,
 )
 @click.argument("list_items", nargs=-1)
 def main(
-    trello_board_id: str,
+    credentials: pathlib.Path,
     title: str,
     impersonated_user_email: str,
+    text: bool,
+    trello_board: str,
     list_items: list[str],
-    credentials: pathlib.Path,
 ):
     """Extract items from Trello lists and create a Google Keep note.
 
     This command extracts items from specified Trello lists and creates
     a formatted Google Keep note. Specify list names as arguments.
 
-    Example: uv run groceries Lidl Carrefour "Whole Foods"
+    Example: trello2keep Kanban Ongoing Validating
     """
-    _execute_main(trello_board_id, title, impersonated_user_email, list_items, credentials)
+    if not title:
+        title = trello_board
+    _execute_main(trello_board, title, impersonated_user_email, text, list_items, credentials)
 
 
 def _execute_main(
-    trello_board_id: str,
+    trello_board: str,
     title: str,
     impersonated_user_email: str,
+    text: bool,
     list_items: list[str],
     credentials: pathlib.Path,
 ):
@@ -253,10 +265,11 @@ def _execute_main(
     a formatted Google Keep note with those items.
 
     Args:
-        trello_board_id: The unique identifier for the Trello board.
+        trello_board: The Trello board  name.
         title: The title for the created Google Keep note.
         impersonated_user_email: Email address of the user to impersonate
             when creating the Google Keep note.
+        text: If True, create a text note instead of a checklist note.
         list_items: A tuple of list names to extract from the Trello board.
         credentials: Path to the credentials JSON file containing both
             Trello API credentials and Google service account credentials.
@@ -271,11 +284,11 @@ def _execute_main(
         AssertionError: If the item extraction from Trello fails.
         Various API errors: If Google Keep note creation fails.
     """
-    items = extract_list_items(trello_board_id, list_items, credentials_path=credentials)
+    items = extract_list_items(trello_board, list_items, credentials_path=credentials)
     if items is None:
-        raise click.ClickException("Failed to extract items from Trello. Please check your credentials and board ID.")
+        raise click.ClickException("Failed to extract items from Trello. Please check your credentials and board name.")
     keep_service = get_keep_service(credentials_path=credentials, impersonated_user_email=impersonated_user_email)
-    note = create_google_keep_note(keep_service, title, items)
+    note = create_google_keep_note(keep_service, title, items, text)
     click.secho(f'Google Keep note created: "{note.get("title")}" ({note.get("name")})', fg="green")
 
 

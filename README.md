@@ -1,4 +1,4 @@
-# Groceries
+# trello2keep
 
 Create a Google Keep note with items from Trello lists.
 
@@ -50,15 +50,24 @@ uv sync --group dev
 ## Usage
 
 ```bash
-Usage: groceries [OPTIONS] [LIST_ITEMS]...
+Usage: python -m trello2keep.main [OPTIONS] TRELLO_BOARD [LIST_ITEMS]...
 
   Extract items from Trello lists and create a Google Keep note.
 
+  This command extracts items from specified Trello lists and creates a
+  formatted Google Keep note. Specify list names as arguments.
+
+  Example: trello2keep Kanban Ongoing Validating
+
 Options:
-  --credentials PATH              Path to Google API credentials file.
-  --trello-board-id TEXT          Trello board ID to extract items from.
-  --title TEXT                    Title of the Google Keep note.
+  --credentials PATH              Path to credentials file.  [default:
+                                  credentials.json]
+  --title TEXT                    Title of the Google Keep note. Name of the
+                                  Trello board will be used if not specified.
   --impersonated-user-email TEXT  Email address of the user to impersonate.
+                                  [default: antoine@openance.com]
+  --text / --no-text              Create a text note instead of a checklist
+                                  note. Default is False (checklist note).
   --help                          Show this message and exit.
 ```
 
@@ -66,36 +75,39 @@ Options:
 
 ```bash
 # Run the application with default settings
-uv run groceries Lidl Carrefour
+uv run trello2keep Kanban Developing Validating
 
 # Specify a custom credentials file
-uv run groceries --credentials /path/to/creds.json Lidl Carrefour
-
-# Use a different Trello board ID
-uv run groceries --trello-board-id your_board_id Lidl Carrefour
+uv run trello2keep --credentials /path/to/creds.json Kanban Developing Validating
 
 # Customize the Google Keep note title
-uv run groceries --title "Weekly Shopping List" Lidl Carrefour
+uv run trello2keep --title "Weekly Task List" Kanban Developing Validating
 
 # Use a different impersonated user email for Google Keep
-uv run groceries --impersonated-user-email user@company.com Lidl Carrefour
+uv run trello2keep --impersonated-user-email user@company.com Kanban Developing Validating
+
+# Create a text note instead of checklist
+uv run trello2keep --text Kanban Developing Validating
 
 # Combine multiple options
-uv run groceries \
+uv run trello2keep \
   --credentials ./my-creds.json \
-  --trello-board-id abc123 \
-  --title "Grocery Shopping" \
-  --impersonated-user-email shopper@company.com \
-  Lidl Carrefour "Whole Foods"
+  --title "Project Tasks" \
+  --impersonated-user-email user@company.com \
+  --text \
+  Kanban \
+  Developing Validating "Ready for QA"
 
 # Or run directly with Python
-uv run python -m groceries.main Lidl Carrefour
+uv run python -m trello2keep.main Kanban Developing Validating
 ```
 
 ### Arguments and Options
 
 #### Positional Arguments
 
+-   `TRELLO_BOARD`: The name of the Trello board to extract items from. This is
+    a required positional argument.
 -   `LIST_ITEMS`: Names of the lists to export from Trello (space-separated).
     These correspond to the names of lists in your Trello board. List names are
     case-insensitive.
@@ -105,25 +117,25 @@ uv run python -m groceries.main Lidl Carrefour
 -   `--credentials PATH`: Path to the credentials JSON file (default:
     `credentials.json`). This file should contain both Trello API credentials
     and Google service account credentials.
--   `--trello-board-id TEXT`: The unique identifier for your Trello board
-    (default: `iVKNyGyE`). You can find this ID in your Trello board's URL.
--   `--title TEXT`: Title for the created Google Keep note (default:
-    `Shopping List`).
+-   `--title TEXT`: Title for the created Google Keep note. If not specified,
+    the Trello board name will be used as the title.
 -   `--impersonated-user-email TEXT`: Email address of the user to impersonate
     when creating the Google Keep note (default: `antoine@openance.com`). This
     requires domain-wide delegation to be properly configured.
+-   `--text / --no-text`: Create a text note instead of a checklist note.
+    Default is False (checklist note).
 
-#### Examples of List Names
+#### Examples of Usage
 
 ```bash
-# Common grocery store names
-uv run groceries Lidl Carrefour "Whole Foods" Target
+# Common project stages
+uv run trello2keep "My Board" "To Do" "In Progress" "Done"
 
 # Category-based lists
-uv run groceries Produce Dairy Meat Bakery
+uv run trello2keep "Project Board" "Frontend Tasks" "Backend Tasks" "DevOps"
 
-# Store and category combinations
-uv run groceries "Lidl - Groceries" "Lidl - Household" "Online Orders"
+# Team and status combinations
+uv run trello2keep "Team Board" "Team A - In Progress" "Team B - Blocked" "Ready for Review"
 ```
 
 ## Getting the Trello Token
