@@ -1,0 +1,27 @@
+[project]
+name = "groceries"
+version = "0.1.0"
+description = "Create a CSV file with grocery lists from Trello JSON exports"
+readme = "README.md"
+authors = [{ name = "Antoine Martin", email = "antoine.martin@octave.biz" }]
+requires-python = ">=3.13"
+dependencies = ["click>=8.2.1"]
+license = { text = "MIT" }
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+]
+
+[project.scripts]
+groceries = "groceries:main"
+
+[build-system]
+requires = ["uv_build>=0.8.2,<0.9.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = ["pytest>=8.4.1"]
