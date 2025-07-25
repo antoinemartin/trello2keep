@@ -6,7 +6,7 @@ import click
 @click.command()
 @click.argument("json_file", type=click.Path(exists=True))
 @click.argument("lists", nargs=-1)
-def main(json_file, lists):
+def old(json_file, lists):
     """
     Export cards from the given lists from a Trello JSON export to a CSV file.
 
@@ -45,6 +45,49 @@ def main(json_file, lists):
         writer.writerows(cards)
 
     click.echo(f"{len(cards)} items exported to {csv_file}.")
+
+
+@click.command()
+@click.argument("json_file", type=click.Path(exists=True))
+@click.argument("lists", nargs=-1)
+def main(json_file, lists):
+    """
+    Generate a Google Keep note with checkboxes from a Trello JSON export.
+    Order of lists: Lidl first, then Carrefour.
+    """
+    with open(json_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    if "actions" not in data:
+        click.echo("Error: Invalid JSON file.")
+        return
+
+    list_items = {name: [] for name in lists}
+
+    for action in data["actions"]:
+        if action["type"] == "createCard" and "list" in action["data"]:
+            list_name = action["data"]["list"]["name"]
+            card_name = action["data"]["card"]["name"]
+            if list_name in list_items:
+                list_items[list_name].append(card_name)
+
+    # Generate the note content
+    note_lines = []
+    for list_name in lists:
+        items = list_items.get(list_name, [])
+        if items:
+            note_lines.append(f"{list_name.upper()}")
+            for item in items:
+                note_lines.append(f"{item}")
+            note_lines.append("")  # empty line
+
+    note_text = "\n".join(note_lines)
+
+    # Write to a text file
+    with open("courses_keep_note.txt", "w", encoding="utf-8") as f:
+        f.write(note_text)
+
+    click.echo("Google Keep note generated in 'courses_keep_note.txt'.")
 
 
 if __name__ == "__main__":
