@@ -56,7 +56,7 @@ Usage: trello2keep [OPTIONS] [LIST_ITEMS]...
 
 Options:
   --credentials PATH              Path to Google API credentials file.
-  --trello-board-id TEXT          Trello board ID to extract items from.
+  --trello-board TEXT              Trello board name to extract items from.
   --title TEXT                    Title of the Google Keep note.
   --impersonated-user-email TEXT  Email address of the user to impersonate.
   --help                          Show this message and exit.
@@ -71,8 +71,8 @@ uv run trello2keep Developing Validating
 # Specify a custom credentials file
 uv run trello2keep --credentials /path/to/creds.json Developing Validating
 
-# Use a different Trello board ID
-uv run trello2keep --trello-board-id your_board_id Developing Validating
+# Use a different Trello board
+uv run trello2keep --trello-board "Your Board Name" Developing Validating
 
 # Customize the Google Keep note title
 uv run trello2keep --title "Weekly Task List" Developing Validating
@@ -83,7 +83,7 @@ uv run trello2keep --impersonated-user-email user@company.com Developing Validat
 # Combine multiple options
 uv run trello2keep \
   --credentials ./my-creds.json \
-  --trello-board-id abc123 \
+  --trello-board Kanban \
   --title "Project Tasks" \
   --impersonated-user-email user@company.com \
   Developing Validating "Ready for QA"
@@ -105,8 +105,8 @@ uv run python -m trello2keep.main Developing Validating
 -   `--credentials PATH`: Path to the credentials JSON file (default:
     `credentials.json`). This file should contain both Trello API credentials
     and Google service account credentials.
--   `--trello-board-id TEXT`: The unique identifier for your Trello board
-    (default: `iVKNyGyE`). You can find this ID in your Trello board's URL.
+-   `--trello-board TEXT`: The unique name for your Trello board (default:
+    `Courses`).
 -   `--title TEXT`: Title for the created Google Keep note (default:
     `Shopping List`).
 -   `--impersonated-user-email TEXT`: Email address of the user to impersonate

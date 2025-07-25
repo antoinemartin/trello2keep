@@ -208,11 +208,11 @@ def create_google_keep_note(
     help="Path to credentials file.",
 )
 @click.option(
-    "--trello-board-id",
+    "--trello-board",
     type=str,
-    default="iVKNyGyE",
+    default="Courses",
     show_default=True,
-    help="Trello board ID to extract items from.",
+    help="Trello board name to extract items from.",
 )
 @click.option(
     "--title",
@@ -236,7 +236,7 @@ def create_google_keep_note(
 )
 @click.argument("list_items", nargs=-1)
 def main(
-    trello_board_id: str,
+    trello_board: str,
     title: str,
     impersonated_user_email: str,
     text: bool,
@@ -250,11 +250,11 @@ def main(
 
     Example: uv run trello2keep Lidl Carrefour "Whole Foods"
     """
-    _execute_main(trello_board_id, title, impersonated_user_email, text, list_items, credentials)
+    _execute_main(trello_board, title, impersonated_user_email, text, list_items, credentials)
 
 
 def _execute_main(
-    trello_board_id: str,
+    trello_board: str,
     title: str,
     impersonated_user_email: str,
     text: bool,
@@ -268,10 +268,11 @@ def _execute_main(
     a formatted Google Keep note with those items.
 
     Args:
-        trello_board_id: The unique identifier for the Trello board.
+        trello_board: The Trello board  name.
         title: The title for the created Google Keep note.
         impersonated_user_email: Email address of the user to impersonate
             when creating the Google Keep note.
+        text: If True, create a text note instead of a checklist note.
         list_items: A tuple of list names to extract from the Trello board.
         credentials: Path to the credentials JSON file containing both
             Trello API credentials and Google service account credentials.
@@ -286,7 +287,7 @@ def _execute_main(
         AssertionError: If the item extraction from Trello fails.
         Various API errors: If Google Keep note creation fails.
     """
-    items = extract_list_items(trello_board_id, list_items, credentials_path=credentials)
+    items = extract_list_items(trello_board, list_items, credentials_path=credentials)
     if items is None:
         raise click.ClickException("Failed to extract items from Trello. Please check your credentials and board ID.")
     keep_service = get_keep_service(credentials_path=credentials, impersonated_user_email=impersonated_user_email)
