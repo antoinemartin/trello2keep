@@ -90,7 +90,7 @@ class TrelloClient:
             "card_fields": "name,idList,desc",
         }
 
-        response = requests.get(url, params=params)
+        response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         return response.json()
 
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     """
     # Set your credentials (preferably from environment variables)
     API_KEY = "a947b9efafb4b833d41b6ba4a798f168"
-    TOKEN = "ATT..."
+    TOKEN = "ATT..."  # nosec
     BOARD_ID = "iVKNyGyE"  # From your URL
 
     client = TrelloClient(API_KEY, TOKEN)

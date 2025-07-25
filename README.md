@@ -227,17 +227,58 @@ are being extracted from Trello.
 # Install development dependencies
 uv sync --group dev
 
+# Set up pre-commit hooks for code quality
+uv run pre-commit install
+
+# Run pre-commit hooks manually on all files (optional)
+uv run pre-commit run --all-files
+
 # Run tests
 uv run pytest
+```
+
+### Code Quality Tools
+
+This project uses several tools to maintain code quality:
+
+-   **Ruff**: Fast Python linter and formatter
+-   **mypy**: Static type checker
+-   **Bandit**: Security linter
+-   **Safety**: Dependency vulnerability checker (run manually)
+
+Most tools are automatically run via pre-commit hooks on every commit. You can
+also run them manually:
+
+```bash
+# Lint with Ruff
+uv run ruff check src tests
+
+# Type check with mypy
+uv run mypy src tests
+
+# Security check with Bandit
+uv run bandit -r src
+
+# Check for vulnerabilities with Safety (run periodically)
+uv run safety check
 ```
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Run tests to ensure everything works
-5. Submit a pull request
+3. Set up the development environment:
+    ```bash
+    uv sync --group dev
+    uv run pre-commit install
+    ```
+4. Make your changes
+5. Run tests and ensure code quality checks pass:
+    ```bash
+    uv run pytest
+    uv run pre-commit run --all-files
+    ```
+6. Submit a pull request
 
 ## License
 
