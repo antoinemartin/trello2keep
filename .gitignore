@@ -194,6 +194,7 @@ $RECYCLE.BIN/
 # Project specific files
 *.mbox
 *.csv
+courses.json
 
 # UV specific (keeping uv.lock for reproducibility)
 # .python-version is kept for consistent Python version

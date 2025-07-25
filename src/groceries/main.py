@@ -58,17 +58,26 @@ def main(json_file, lists):
     with open(json_file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    if "actions" not in data:
+    lists = [name.lower() for name in lists]
+
+    if "cards" not in data:
         click.echo("Error: Invalid JSON file.")
         return
 
     list_items = {name: [] for name in lists}
 
-    for action in data["actions"]:
-        if action["type"] == "createCard" and "list" in action["data"]:
-            list_name = action["data"]["list"]["name"]
-            card_name = action["data"]["card"]["name"]
-            if list_name in list_items:
+    list_id_to_name = {
+        it["id"]: it["name"].lower()
+        for it in data["lists"]
+        if it["name"].lower() in lists and not it["closed"]
+    }
+    list_ids = list(list_id_to_name.keys())
+
+    for card in data["cards"]:
+        if card["idList"] in list_ids and not card["closed"]:
+            list_name = list_id_to_name.get(card["idList"])
+            if list_name and list_name in lists:
+                card_name = card["name"]
                 list_items[list_name].append(card_name)
 
     # Generate the note content
