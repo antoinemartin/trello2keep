@@ -286,7 +286,7 @@ def _execute_main(
     """
     items = extract_list_items(trello_board, list_items, credentials_path=credentials)
     if items is None:
-        raise click.ClickException("Failed to extract items from Trello. Please check your credentials and board ID.")
+        raise click.ClickException("Failed to extract items from Trello. Please check your credentials and board name.")
     keep_service = get_keep_service(credentials_path=credentials, impersonated_user_email=impersonated_user_email)
     note = create_google_keep_note(keep_service, title, items, text)
     click.secho(f'Google Keep note created: "{note.get("title")}" ({note.get("name")})', fg="green")
