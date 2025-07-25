@@ -208,18 +208,9 @@ def create_google_keep_note(
     help="Path to credentials file.",
 )
 @click.option(
-    "--trello-board",
-    type=str,
-    default="Courses",
-    show_default=True,
-    help="Trello board name to extract items from.",
-)
-@click.option(
     "--title",
     type=str,
-    default="Todo List",
-    show_default=True,
-    help="Title of the Google Keep note.",
+    help="Title of the Google Keep note. Name of the Trello board will be used if not specified.",
 )
 @click.option(
     "--impersonated-user-email",
@@ -234,22 +225,28 @@ def create_google_keep_note(
     help="Create a text note instead of a checklist note. Default is False (checklist note).",
     show_default=False,
 )
+@click.argument(
+    "trello_board",
+    type=str,
+)
 @click.argument("list_items", nargs=-1)
 def main(
-    trello_board: str,
+    credentials: pathlib.Path,
     title: str,
     impersonated_user_email: str,
     text: bool,
+    trello_board: str,
     list_items: list[str],
-    credentials: pathlib.Path,
 ):
     """Extract items from Trello lists and create a Google Keep note.
 
     This command extracts items from specified Trello lists and creates
     a formatted Google Keep note. Specify list names as arguments.
 
-    Example: uv run trello2keep Lidl Carrefour "Whole Foods"
+    Example: trello2keep Kanban Ongoing Validating
     """
+    if not title:
+        title = trello_board
     _execute_main(trello_board, title, impersonated_user_email, text, list_items, credentials)
 
 

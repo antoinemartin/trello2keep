@@ -50,15 +50,24 @@ uv sync --group dev
 ## Usage
 
 ```bash
-Usage: trello2keep [OPTIONS] [LIST_ITEMS]...
+Usage: python -m trello2keep.main [OPTIONS] TRELLO_BOARD [LIST_ITEMS]...
 
   Extract items from Trello lists and create a Google Keep note.
 
+  This command extracts items from specified Trello lists and creates a
+  formatted Google Keep note. Specify list names as arguments.
+
+  Example: trello2keep Kanban Ongoing Validating
+
 Options:
-  --credentials PATH              Path to Google API credentials file.
-  --trello-board TEXT              Trello board name to extract items from.
-  --title TEXT                    Title of the Google Keep note.
+  --credentials PATH              Path to credentials file.  [default:
+                                  credentials.json]
+  --title TEXT                    Title of the Google Keep note. Name of the
+                                  Trello board will be used if not specified.
   --impersonated-user-email TEXT  Email address of the user to impersonate.
+                                  [default: antoine@openance.com]
+  --text / --no-text              Create a text note instead of a checklist
+                                  note. Default is False (checklist note).
   --help                          Show this message and exit.
 ```
 
@@ -66,36 +75,39 @@ Options:
 
 ```bash
 # Run the application with default settings
-uv run trello2keep Developing Validating
+uv run trello2keep Kanban Developing Validating
 
 # Specify a custom credentials file
-uv run trello2keep --credentials /path/to/creds.json Developing Validating
-
-# Use a different Trello board
-uv run trello2keep --trello-board "Your Board Name" Developing Validating
+uv run trello2keep --credentials /path/to/creds.json Kanban Developing Validating
 
 # Customize the Google Keep note title
-uv run trello2keep --title "Weekly Task List" Developing Validating
+uv run trello2keep --title "Weekly Task List" Kanban Developing Validating
 
 # Use a different impersonated user email for Google Keep
-uv run trello2keep --impersonated-user-email user@company.com Developing Validating
+uv run trello2keep --impersonated-user-email user@company.com Kanban Developing Validating
+
+# Create a text note instead of checklist
+uv run trello2keep --text Kanban Developing Validating
 
 # Combine multiple options
 uv run trello2keep \
   --credentials ./my-creds.json \
-  --trello-board Kanban \
   --title "Project Tasks" \
   --impersonated-user-email user@company.com \
+  --text \
+  Kanban \
   Developing Validating "Ready for QA"
 
 # Or run directly with Python
-uv run python -m trello2keep.main Developing Validating
+uv run python -m trello2keep.main Kanban Developing Validating
 ```
 
 ### Arguments and Options
 
 #### Positional Arguments
 
+-   `TRELLO_BOARD`: The name of the Trello board to extract items from. This is
+    a required positional argument.
 -   `LIST_ITEMS`: Names of the lists to export from Trello (space-separated).
     These correspond to the names of lists in your Trello board. List names are
     case-insensitive.
@@ -105,25 +117,25 @@ uv run python -m trello2keep.main Developing Validating
 -   `--credentials PATH`: Path to the credentials JSON file (default:
     `credentials.json`). This file should contain both Trello API credentials
     and Google service account credentials.
--   `--trello-board TEXT`: The unique name for your Trello board (default:
-    `Courses`).
--   `--title TEXT`: Title for the created Google Keep note (default:
-    `Shopping List`).
+-   `--title TEXT`: Title for the created Google Keep note. If not specified,
+    the Trello board name will be used as the title.
 -   `--impersonated-user-email TEXT`: Email address of the user to impersonate
     when creating the Google Keep note (default: `antoine@openance.com`). This
     requires domain-wide delegation to be properly configured.
+-   `--text / --no-text`: Create a text note instead of a checklist note.
+    Default is False (checklist note).
 
-#### Examples of List Names
+#### Examples of Usage
 
 ```bash
 # Common project stages
-uv run trello2keep "To Do" "In Progress" "Done"
+uv run trello2keep "My Board" "To Do" "In Progress" "Done"
 
 # Category-based lists
-uv run trello2keep "Frontend Tasks" "Backend Tasks" "DevOps"
+uv run trello2keep "Project Board" "Frontend Tasks" "Backend Tasks" "DevOps"
 
 # Team and status combinations
-uv run trello2keep "Team A - In Progress" "Team B - Blocked" "Ready for Review"
+uv run trello2keep "Team Board" "Team A - In Progress" "Team B - Blocked" "Ready for Review"
 ```
 
 ## Getting the Trello Token
