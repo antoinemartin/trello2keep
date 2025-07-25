@@ -1,4 +1,4 @@
-# Groceries
+# trello2keep
 
 Create a Google Keep note with items from Trello lists.
 
@@ -50,7 +50,7 @@ uv sync --group dev
 ## Usage
 
 ```bash
-Usage: groceries [OPTIONS] [LIST_ITEMS]...
+Usage: trello2keep [OPTIONS] [LIST_ITEMS]...
 
   Extract items from Trello lists and create a Google Keep note.
 
@@ -66,30 +66,30 @@ Options:
 
 ```bash
 # Run the application with default settings
-uv run groceries Lidl Carrefour
+uv run trello2keep Developing Validating
 
 # Specify a custom credentials file
-uv run groceries --credentials /path/to/creds.json Lidl Carrefour
+uv run trello2keep --credentials /path/to/creds.json Developing Validating
 
 # Use a different Trello board ID
-uv run groceries --trello-board-id your_board_id Lidl Carrefour
+uv run trello2keep --trello-board-id your_board_id Developing Validating
 
 # Customize the Google Keep note title
-uv run groceries --title "Weekly Shopping List" Lidl Carrefour
+uv run trello2keep --title "Weekly Task List" Developing Validating
 
 # Use a different impersonated user email for Google Keep
-uv run groceries --impersonated-user-email user@company.com Lidl Carrefour
+uv run trello2keep --impersonated-user-email user@company.com Developing Validating
 
 # Combine multiple options
-uv run groceries \
+uv run trello2keep \
   --credentials ./my-creds.json \
   --trello-board-id abc123 \
-  --title "Grocery Shopping" \
-  --impersonated-user-email shopper@company.com \
-  Lidl Carrefour "Whole Foods"
+  --title "Project Tasks" \
+  --impersonated-user-email user@company.com \
+  Developing Validating "Ready for QA"
 
 # Or run directly with Python
-uv run python -m groceries.main Lidl Carrefour
+uv run python -m trello2keep.main Developing Validating
 ```
 
 ### Arguments and Options
@@ -116,14 +116,14 @@ uv run python -m groceries.main Lidl Carrefour
 #### Examples of List Names
 
 ```bash
-# Common grocery store names
-uv run groceries Lidl Carrefour "Whole Foods" Target
+# Common project stages
+uv run trello2keep "To Do" "In Progress" "Done"
 
 # Category-based lists
-uv run groceries Produce Dairy Meat Bakery
+uv run trello2keep "Frontend Tasks" "Backend Tasks" "DevOps"
 
-# Store and category combinations
-uv run groceries "Lidl - Groceries" "Lidl - Household" "Online Orders"
+# Team and status combinations
+uv run trello2keep "Team A - In Progress" "Team B - Blocked" "Ready for Review"
 ```
 
 ## Getting the Trello Token
