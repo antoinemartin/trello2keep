@@ -28,9 +28,9 @@ from googleapiclient.discovery import build
 from .trello import TrelloClient
 
 # Scopes required for Google Keep
-SCOPES = ["https://www.googleapis.com/auth/keep"]
-DEFAULT_CREDENTIALS_PATH = pathlib.Path("credentials.json")
-DEFAULT_IMPERSONATED_USER_EMAIL = "antoine@openance.com"
+SCOPES = ['https://www.googleapis.com/auth/keep']
+DEFAULT_CREDENTIALS_PATH = pathlib.Path('credentials.json')
+DEFAULT_IMPERSONATED_USER_EMAIL = 'antoine@openance.com'
 
 
 def get_keep_service(
@@ -63,7 +63,7 @@ def get_keep_service(
         credentials_path, scopes=SCOPES, subject=impersonated_user_email
     )
 
-    return build("keep", "v1", credentials=creds)
+    return build('keep', 'v1', credentials=creds)
 
 
 def extract_list_items(
@@ -97,39 +97,39 @@ def extract_list_items(
 
     # Read the JSON file credentials_path
     if not credentials_path.exists():
-        click.echo(f"Error: Credentials file {credentials_path} does not exist.")
+        click.echo(f'Error: Credentials file {credentials_path} does not exist.')
         return None
 
-    with open(credentials_path, "r", encoding="utf-8") as f:
+    with open(credentials_path, encoding='utf-8') as f:
         credentials_data = json.load(f)
 
     # get the API key, token, and board ID from the credentials file
-    if "trello" not in credentials_data:
-        click.echo("Error: Trello credentials not found in the credentials file.")
+    if 'trello' not in credentials_data:
+        click.echo('Error: Trello credentials not found in the credentials file.')
         return None
-    trello = credentials_data["trello"]
-    api_key = trello.get("api_key")
-    token = trello.get("token")
+    trello = credentials_data['trello']
+    api_key = trello.get('api_key')
+    token = trello.get('token')
 
     client = TrelloClient(api_key, token)
     data = client.get_board_data(trello_board_id)
 
     lists = [name.lower() for name in lists]
 
-    if "cards" not in data:
-        click.echo("Error: Invalid JSON file.")
+    if 'cards' not in data:
+        click.echo('Error: Invalid JSON file.')
         return None
 
     list_items: dict[str, list[str]] = {name: [] for name in lists}
 
-    list_id_to_name = {it["id"]: it["name"].lower() for it in data["lists"] if it["name"].lower() in lists}
+    list_id_to_name = {it['id']: it['name'].lower() for it in data['lists'] if it['name'].lower() in lists}
     list_ids = list(list_id_to_name.keys())
 
-    for card in data["cards"]:
-        if card["idList"] in list_ids:
-            list_name = list_id_to_name.get(card["idList"])
+    for card in data['cards']:
+        if card['idList'] in list_ids:
+            list_name = list_id_to_name.get(card['idList'])
             if list_name and list_name in lists:
-                card_name = card["name"]
+                card_name = card['name']
                 list_items[list_name].append(card_name)
     return list_items
 
@@ -170,29 +170,29 @@ def create_google_keep_note(
         for list_name in list_items.keys():
             section_items = list_items.get(list_name, [])
             if section_items:
-                note_lines.append(f"{list_name.upper()}")
+                note_lines.append(f'{list_name.upper()}')
                 for item in section_items:
-                    note_lines.append(f"{item}")
-                note_lines.append("")  # empty line
+                    note_lines.append(f'{item}')
+                note_lines.append('')  # empty line
         body = {
-            "title": note_title,
-            "body": {"text": {"text": "\n".join(note_lines)}},
+            'title': note_title,
+            'body': {'text': {'text': '\n'.join(note_lines)}},
         }
     else:
         items = []
         for list_name in list_items.keys():
             items.append(
                 {
-                    "text": {"text": f"{list_name.upper()}"},
-                    "checked": False,
-                    "childListItems": [{"text": {"text": item}, "checked": False} for item in list_items[list_name]],
+                    'text': {'text': f'{list_name.upper()}'},
+                    'checked': False,
+                    'childListItems': [{'text': {'text': item}, 'checked': False} for item in list_items[list_name]],
                 }
             )
 
         # Create the note body
         body = {
-            "title": note_title,
-            "body": {"list": {"listItems": items}},
+            'title': note_title,
+            'body': {'list': {'listItems': items}},
         }
 
     result = service.notes().create(body=body).execute()
@@ -201,35 +201,35 @@ def create_google_keep_note(
 
 @click.command()
 @click.option(
-    "--credentials",
+    '--credentials',
     type=click.Path(exists=True, path_type=pathlib.Path),
     default=DEFAULT_CREDENTIALS_PATH,
     show_default=True,
-    help="Path to credentials file.",
+    help='Path to credentials file.',
 )
 @click.option(
-    "--title",
+    '--title',
     type=str,
-    help="Title of the Google Keep note. Name of the Trello board will be used if not specified.",
+    help='Title of the Google Keep note. Name of the Trello board will be used if not specified.',
 )
 @click.option(
-    "--impersonated-user-email",
+    '--impersonated-user-email',
     type=str,
     default=DEFAULT_IMPERSONATED_USER_EMAIL,
     show_default=True,
-    help="Email address of the user to impersonate.",
+    help='Email address of the user to impersonate.',
 )
 @click.option(
-    "--text/--no-text",
+    '--text/--no-text',
     default=False,
-    help="Create a text note instead of a checklist note. Default is False (checklist note).",
+    help='Create a text note instead of a checklist note. Default is False (checklist note).',
     show_default=False,
 )
 @click.argument(
-    "trello_board",
+    'trello_board',
     type=str,
 )
-@click.argument("list_items", nargs=-1)
+@click.argument('list_items', nargs=-1)
 def main(
     credentials: pathlib.Path,
     title: str,
@@ -286,11 +286,11 @@ def _execute_main(
     """
     items = extract_list_items(trello_board, list_items, credentials_path=credentials)
     if items is None:
-        raise click.ClickException("Failed to extract items from Trello. Please check your credentials and board name.")
+        raise click.ClickException('Failed to extract items from Trello. Please check your credentials and board name.')
     keep_service = get_keep_service(credentials_path=credentials, impersonated_user_email=impersonated_user_email)
     note = create_google_keep_note(keep_service, title, items, text)
-    click.secho(f'Google Keep note created: "{note.get("title")}" ({note.get("name")})', fg="green")
+    click.secho(f'Google Keep note created: "{note.get("title")}" ({note.get("name")})', fg='green')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

@@ -5,10 +5,12 @@ Create a Google Keep note with items from Trello lists.
 ## Description
 
 This tool exports cards from specified lists in a Trello board and creates a
-formatted Google Keep note with those items. It's designed to help manage
-grocery lists by extracting items from Trello boards and converting them to a
-more portable format that can be easily accessed and checked off on mobile
-devices.
+formatted Google Keep note with those items. It's designed to help manage todo
+lists by extracting items from Trello boards and converting them to a more
+portable format that can be easily accessed and checked off on mobile devices.
+
+I personally use this tool to manage my errands and tasks on my digital watch,
+where I can quickly check off items as I complete them.
 
 The application connects to both the Trello API to fetch list items and the
 Google Keep API to create notes. It supports domain-wide delegation for Google
@@ -50,7 +52,7 @@ uv sync --group dev
 ## Usage
 
 ```bash
-Usage: python -m trello2keep.main [OPTIONS] TRELLO_BOARD [LIST_ITEMS]...
+Usage: trello2keep [OPTIONS] TRELLO_BOARD [LIST_ITEMS]...
 
   Extract items from Trello lists and create a Google Keep note.
 
@@ -240,15 +242,9 @@ Ensure your `credentials.json` file has a `trello` section with `api_key` and
 
 #### "Invalid JSON file" or "Failed to extract items from Trello"
 
--   Verify your Trello board ID is correct
+-   Verify your Trello board name is correct
 -   Check that the specified list names exist on your board (case-insensitive)
 -   Ensure your Trello token has read access to the board
-
-### Debug Mode
-
-To see the extracted items before they're sent to Google Keep, the application
-prints the items as JSON to stdout. This can help verify that the correct items
-are being extracted from Trello.
 
 ## Development
 
@@ -273,7 +269,6 @@ This project uses several tools to maintain code quality:
 -   **Ruff**: Fast Python linter and formatter
 -   **mypy**: Static type checker
 -   **Bandit**: Security linter
--   **Safety**: Dependency vulnerability checker (run manually)
 
 Most tools are automatically run via pre-commit hooks on every commit. You can
 also run them manually:
@@ -288,8 +283,6 @@ uv run mypy src tests
 # Security check with Bandit
 uv run bandit -r src
 
-# Check for vulnerabilities with Safety (run periodically)
-uv run safety check
 ```
 
 ## Contributing
