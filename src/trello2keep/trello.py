@@ -14,7 +14,7 @@ Example:
 """
 
 import json
-from typing import Any, Dict
+from typing import Any
 
 import requests
 
@@ -52,7 +52,7 @@ class TrelloClient:
         """
         self.api_key = api_key
         self.token = token
-        self.base_url = "https://api.trello.com/1"
+        self.base_url = 'https://api.trello.com/1'
 
     def get_board_id_by_name(self, board_name: str) -> str:
         """
@@ -68,19 +68,19 @@ class TrelloClient:
             ValueError: If no board with the given name is found.
             requests.HTTPError: If the API request fails
         """
-        url = f"{self.base_url}/members/me/boards"
-        params = {"key": self.api_key, "token": self.token, "fields": "name"}
+        url = f'{self.base_url}/members/me/boards'
+        params = {'key': self.api_key, 'token': self.token, 'fields': 'name'}
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         boards = response.json()
 
         for board in boards:
-            if board["name"] == board_name:
-                return board["id"]
+            if board['name'] == board_name:
+                return board['id']
 
         raise ValueError(f"Board with name '{board_name}' not found.")
 
-    def get_board_data(self, board_name: str) -> Dict[str, Any]:
+    def get_board_data(self, board_name: str) -> dict[str, Any]:
         """
         Fetch comprehensive board data including lists and cards.
 
@@ -108,20 +108,20 @@ class TrelloClient:
             >>> print(len(board_data['lists']))  # Number of lists
         """
         board_id = self.get_board_id_by_name(board_name)
-        url = f"{self.base_url}/boards/{board_id}"
+        url = f'{self.base_url}/boards/{board_id}'
         params = {
-            "key": self.api_key,
-            "token": self.token,
-            "lists": "open",
-            "cards": "open",
-            "card_fields": "name,idList,desc",
+            'key': self.api_key,
+            'token': self.token,
+            'lists': 'open',
+            'cards': 'open',
+            'card_fields': 'name,idList,desc',
         }
 
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         return response.json()
 
-    def export_to_json(self, board_name: str, filename: str = "courses.json") -> str:
+    def export_to_json(self, board_name: str, filename: str = 'courses.json') -> str:
         """
         Export board data to a JSON file in Trello export format.
 
@@ -148,14 +148,14 @@ class TrelloClient:
         """
         board_data = self.get_board_data(board_name)
 
-        with open(filename, "w", encoding="utf-8") as f:
+        with open(filename, 'w', encoding='utf-8') as f:
             json.dump(board_data, f, indent=2, ensure_ascii=False)
 
         return filename
 
 
 # Usage example
-if __name__ == "__main__":
+if __name__ == '__main__':
     """
     Example usage of the TrelloClient.
 
@@ -171,10 +171,10 @@ if __name__ == "__main__":
     # Set your credentials (preferably from environment variables)
     import os
 
-    API_KEY = os.getenv("TRELLO_API_KEY", "your_api_key_here")
-    TOKEN = os.getenv("TRELLO_TOKEN", "your_token_here")
-    BOARD_NAME = os.getenv("TRELLO_BOARD_NAME", "Courses")
+    API_KEY = os.getenv('TRELLO_API_KEY', 'your_api_key_here')
+    TOKEN = os.getenv('TRELLO_TOKEN', 'your_token_here')
+    BOARD_NAME = os.getenv('TRELLO_BOARD_NAME', 'Courses')
 
     client = TrelloClient(API_KEY, TOKEN)
     client.export_to_json(BOARD_NAME)
-    print("Board data exported to courses.json")
+    print('Board data exported to courses.json')
