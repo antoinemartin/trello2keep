@@ -196,6 +196,10 @@ $RECYCLE.BIN/
 *.csv
 courses.json
 credentials.json
+ordering_instructions.md
+
+# Keep sample files
+!ordering_instructions_sample.md
 
 # UV specific (keeping uv.lock for reproducibility)
 # .python-version is kept for consistent Python version
@@ -217,3 +221,7 @@ logs/
 *.bak
 *.backup
 *.old
+
+# Crush directory
+.crush/
+.instructions/
