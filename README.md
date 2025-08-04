@@ -22,11 +22,20 @@ creating notes.
 -   **Trello Integration**: Extract items from multiple lists on any Trello
     board
 -   **Google Keep Integration**: Create formatted notes with proper sections
+-   **AI-Powered Filtering**: Use LLMs to intelligently filter, organize, and
+    categorize items with custom prompts (powered by
+    [Pythonic AI](https://ai.pydantic.dev/))
+-   **Multiple AI Models**: Support for various AI providers (Azure OpenAI,
+    OpenAI) with customizable model selection
 -   **Flexible Configuration**: Customize board IDs, note titles, and user
     impersonation
 -   **Multiple List Support**: Process multiple Trello lists in a single run
 -   **Case-Insensitive Matching**: List names are matched case-insensitively for
     convenience
+-   **Dual Note Formats**: Create either text notes (reorderable) or checklist
+    notes (with checkboxes)
+-   **Custom Organization**: Support for custom item ordering (see
+    `ordering_instructions_sample.md` for template)
 
 ## Requirements
 
@@ -70,6 +79,10 @@ Options:
                                   [default: antoine@openance.com]
   --text / --no-text              Create a text note instead of a checklist
                                   note. Default is False (checklist note).
+  --ai-filter PATH                Path to a markdown file with system prompt
+                                  to filter items via LLM.
+  --ai-model TEXT                 Model identifier. Prefix with provider (e.g.,
+                                  azure:gpt-4o).  [default: azure:gpt-4o]
   --help                          Show this message and exit.
 ```
 
@@ -91,11 +104,18 @@ uv run trello2keep --impersonated-user-email user@company.com Kanban Developing 
 # Create a text note instead of checklist
 uv run trello2keep --text Kanban Developing Validating
 
-# Combine multiple options
+# Use AI filtering with a custom system prompt
+uv run trello2keep --ai-filter ./filter_prompt.md Kanban Developing Validating
+
+# Use a different AI model for filtering
+uv run trello2keep --ai-model openai:gpt-4 --ai-filter ./grocery_filter.md Kanban Shopping Lists
+
+# Combine multiple options including AI filtering
 uv run trello2keep \
   --credentials ./my-creds.json \
-  --title "Project Tasks" \
-  --impersonated-user-email user@company.com \
+  --title "Organized Shopping List" \
+  --ai-filter ./store_layout_filter.md \
+  --ai-model azure:gpt-4o \
   --text \
   Kanban \
   Developing Validating "Ready for QA"
@@ -126,6 +146,15 @@ uv run python -m trello2keep.main Kanban Developing Validating
     requires domain-wide delegation to be properly configured.
 -   `--text / --no-text`: Create a text note instead of a checklist note.
     Default is False (checklist note).
+-   `--ai-filter PATH`: Path to a markdown file containing a system prompt that
+    will be used to filter and organize items via a Large Language Model (LLM).
+    This enables intelligent filtering and categorization of items.
+-   `--ai-model TEXT`: Model identifier for the AI filtering feature (default:
+    `azure:gpt-4o`). Follows the same syntax as the pydantic-ai CLI with
+    provider prefixes (e.g., `azure:gpt-4o`, `openai:gpt-4`,
+    `gemini:gemini-1.5-pro`). See
+    [pydantic-ai model selection](https://ai.pydantic.dev/cli/#choose-a-model)
+    for complete syntax reference. Requires appropriate API credentials.
 
 #### Examples of Usage
 
@@ -138,6 +167,12 @@ uv run trello2keep "Project Board" "Frontend Tasks" "Backend Tasks" "DevOps"
 
 # Team and status combinations
 uv run trello2keep "Team Board" "Team A - In Progress" "Team B - Blocked" "Ready for Review"
+
+# AI-filtered grocery shopping with store layout optimization
+uv run trello2keep --ai-filter ./grocery_filter.md "Shopping Board" "Groceries" "Household Items"
+
+# AI-filtered task management with priority organization
+uv run trello2keep --ai-filter ./task_priority_filter.md --ai-model openai:gpt-4 "Project Board" "Backlog" "Sprint"
 ```
 
 ## Getting the Trello Token
@@ -216,6 +251,24 @@ Your `credentials.json` file should look like this:
 }
 ```
 
+## Advanced Features
+
+### Custom Item Ordering
+
+The application supports custom ordering of items for optimized shopping
+experiences. This is particularly useful for grocery lists where items can be
+organized by store layout.
+
+#### Creating Ordering Instructions
+
+1. Copy the sample template:
+   `cp ordering_instructions_sample.md ordering_instructions.md`
+2. Customize the categories and order based on your preferred store layout
+3. The application will automatically use `ordering_instructions.md` if present
+
+For detailed examples and formatting guidelines, see
+`ordering_instructions_sample.md`.
+
 ## Troubleshooting
 
 ### Common Issues
@@ -248,6 +301,25 @@ Ensure your `credentials.json` file has a `trello` section with `api_key` and
 
 ## Development
 
+### Quick Setup
+
+Use the provided setup script for a complete development environment:
+
+```bash
+# Run the setup script (recommended)
+./scripts/setup-dev.sh
+```
+
+This script will:
+
+-   Install all dependencies including dev dependencies
+-   Set up pre-commit hooks
+-   Run initial code quality checks
+
+### Manual Setup
+
+If you prefer to set up manually:
+
 ```bash
 # Install development dependencies
 uv sync --group dev
@@ -266,16 +338,18 @@ uv run pytest
 
 This project uses several tools to maintain code quality:
 
--   **Ruff**: Fast Python linter and formatter
+-   **Ruff**: Fast Python linter and formatter (replaces Black, isort, flake8)
 -   **mypy**: Static type checker
 -   **Bandit**: Security linter
+-   **pre-commit**: Automatically runs quality checks on commit
 
 Most tools are automatically run via pre-commit hooks on every commit. You can
 also run them manually:
 
 ```bash
-# Lint with Ruff
+# Lint and format with Ruff
 uv run ruff check src tests
+uv run ruff format src tests
 
 # Type check with mypy
 uv run mypy src tests
@@ -283,6 +357,41 @@ uv run mypy src tests
 # Security check with Bandit
 uv run bandit -r src
 
+# Run all pre-commit hooks manually
+uv run pre-commit run --all-files
+```
+
+### Project Structure and Guidelines
+
+This project follows specific development conventions:
+
+-   **Package Manager**: Uses UV exclusively (not pip) for all Python operations
+-   **Code Style**: Ruff formatting with 120-character line length, single
+    quotes
+-   **Type Checking**: Type hints required throughout with mypy validation
+-   **CLI Framework**: Click for command-line interfaces with colored output
+-   **Error Handling**: User-friendly errors via `click.ClickException`
+-   **Python Version**: Requires Python 3.13 or higher
+
+For detailed development guidelines, see:
+
+-   `CRUSH.md` - Quick reference for common development tasks
+-   `.github/copilot-instructions.md` - AI coding assistant guidelines
+
+### Testing
+
+```bash
+# Run all tests
+uv run pytest
+
+# Run tests with coverage
+uv run pytest --cov=src
+
+# Run specific test file
+uv run pytest tests/test_file.py
+
+# Run single test function
+uv run pytest tests/test_file.py::test_function_name
 ```
 
 ## Contributing

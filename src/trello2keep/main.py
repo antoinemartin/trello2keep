@@ -22,8 +22,11 @@ import pathlib
 from typing import Any
 
 import click
+import logfire
+from dotenv import load_dotenv
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from pydantic import BaseModel, Field
 
 from .trello import TrelloClient
 
@@ -31,6 +34,14 @@ from .trello import TrelloClient
 SCOPES = ['https://www.googleapis.com/auth/keep']
 DEFAULT_CREDENTIALS_PATH = pathlib.Path('credentials.json')
 DEFAULT_IMPERSONATED_USER_EMAIL = 'antoine@openance.com'
+
+# Load environment variables from .env file
+load_dotenv()
+
+logfire.configure(console=False, send_to_logfire='if-token-present')
+logfire.instrument_pydantic_ai()
+# Uncomment the following line to enable HTTP request logging
+# logfire.instrument_httpx(capture_all=True)
 
 
 def get_keep_service(
@@ -66,9 +77,72 @@ def get_keep_service(
     return build('keep', 'v1', credentials=creds)
 
 
+class ListData(BaseModel):
+    """Data structure for Trello list items.
+
+    This class represents a list of items extracted from a Trello board.
+    It includes the list name and the items within that list.
+    """
+
+    name: str = Field(..., description='Name of the Trello list')
+    items: list[str] = Field(default_factory=list, description='List of items in the Trello list')
+
+
+class ListsData(BaseModel):
+    """Data structure for Trello lists.
+
+    This class represents a collection of lists extracted from a Trello board.
+    It includes the list name and the items within that list.
+    """
+
+    lists: list[ListData] = Field(default_factory=list, description='List of Trello lists')
+
+    def as_text(self) -> str:
+        """Convert the lists to a formatted text string.
+
+        This method formats the lists and their items into a string suitable for
+        display or storage. Each list is represented by its name in uppercase,
+        followed by its items, with appropriate line breaks.
+
+        Returns:
+            A formatted string with each list and its items.
+        """
+        lines = []
+        for list_data in self.lists:
+            if list_data.items:
+                lines.append(f'{list_data.name.upper()}')
+                lines.extend(list_data.items)
+                lines.append('')  # Add an empty line between lists
+        return '\n'.join(lines)
+
+    def as_dict(self) -> dict[str, list[str]]:
+        """Convert the lists to a dictionary format.
+
+        This method converts the ListsData structure to a dictionary mapping
+        list names to their items, which can be useful for backward compatibility
+        with functions expecting the old dictionary format.
+
+        Returns:
+            A dictionary mapping list names to lists of items.
+        """
+        return {list_data.name: list_data.items for list_data in self.lists}
+
+    @property
+    def list_names(self) -> set[str]:
+        """Get the names of the lists in lowercase.
+
+        This property returns a list of all list names in lowercase, which can
+        be useful for case-insensitive comparisons or lookups.
+
+        Returns:
+            A list of list names in lowercase.
+        """
+        return {list_data.name.lower() for list_data in self.lists}
+
+
 def extract_list_items(
     trello_board_id: str, lists: list[str], credentials_path: pathlib.Path = DEFAULT_CREDENTIALS_PATH
-) -> dict[str, list[str]] | None:
+) -> ListsData | None:
     """Extract list items from a Trello board.
 
     This function connects to the Trello API using credentials from a JSON file,
@@ -86,13 +160,16 @@ def extract_list_items(
             and 'token' subkeys.
 
     Returns:
-        A dictionary mapping list names (lowercase) to lists of card names from
-        those lists. Returns None if there's an error (missing credentials file,
+        A ListsData object containing the extracted lists and their items.
+        Returns None if there's an error (missing credentials file,
         invalid credentials structure, or invalid board data).
 
     Example:
-        >>> extract_list_items("abc123", ["Shopping", "Todo"])
-        {"shopping": ["Milk", "Bread"], "todo": ["Call dentist"]}
+        >>> result = extract_list_items("abc123", ["Shopping", "Todo"])
+        >>> result.lists[0].name
+        "shopping"
+        >>> result.lists[0].items
+        ["Milk", "Bread"]
     """
 
     # Read the JSON file credentials_path
@@ -131,12 +208,13 @@ def extract_list_items(
             if list_name and list_name in lists:
                 card_name = card['name']
                 list_items[list_name].append(card_name)
-    return list_items
+
+    # Convert dict to ListsData object
+    lists_data = ListsData(lists=[ListData(name=name, items=items) for name, items in list_items.items()])
+    return lists_data
 
 
-def create_google_keep_note(
-    service, note_title: str, list_items: dict[str, list[str]], text_only: bool = False
-) -> dict[str, Any]:
+def create_google_keep_note(service, note_title: str, list_items: ListsData, text_only: bool = False) -> dict[str, Any]:
     """Create a Google Keep note with organized list items.
 
     This function takes extracted Trello list items and creates a formatted
@@ -156,7 +234,7 @@ def create_google_keep_note(
 
     Raises:
         googleapiclient.errors.HttpError: If the note creation fails due to
-            API errors or insufficient permissions.
+        API errors or insufficient permissions.
 
     Note:
         The function creates a text note rather than a checklist note to make
@@ -166,26 +244,19 @@ def create_google_keep_note(
 
     # Generate the note content
     if text_only:
-        note_lines = []
-        for list_name in list_items.keys():
-            section_items = list_items.get(list_name, [])
-            if section_items:
-                note_lines.append(f'{list_name.upper()}')
-                for item in section_items:
-                    note_lines.append(f'{item}')
-                note_lines.append('')  # empty line
         body = {
             'title': note_title,
-            'body': {'text': {'text': '\n'.join(note_lines)}},
+            'body': {'text': {'text': list_items.as_text()}},
         }
     else:
         items = []
-        for list_name in list_items.keys():
+        dict_items = list_items.as_dict()
+        for list_name in dict_items.keys():
             items.append(
                 {
                     'text': {'text': f'{list_name.upper()}'},
                     'checked': False,
-                    'childListItems': [{'text': {'text': item}, 'checked': False} for item in list_items[list_name]],
+                    'childListItems': [{'text': {'text': item}, 'checked': False} for item in dict_items[list_name]],
                 }
             )
 
@@ -197,6 +268,41 @@ def create_google_keep_note(
 
     result = service.notes().create(body=body).execute()
     return result
+
+
+def _apply_ai_filter(
+    ai_filter: pathlib.Path | None,
+    ai_model: str,
+    items: ListsData,
+) -> ListsData:
+    if not ai_filter:
+        return items
+    try:
+        from pydantic_ai import Agent, UserError
+        from pydantic_ai.models import infer_model
+    except Exception as e:
+        click.echo(f'Error: pydantic-ai not available: {e}')
+        return items
+
+    try:
+        model = infer_model(ai_model)
+    except UserError as e:
+        click.echo(f'Error: {e}')
+        return items
+    system_prompt = ai_filter.read_text(encoding='utf-8')
+
+    agent = Agent(model=model, system_prompt=system_prompt, output_type=ListsData)
+    user_input = items.model_dump_json()
+    try:
+        result = agent.run_sync(user_input)
+    except Exception as e:
+        click.echo(f'AI filter failed: {e}')
+        return items
+
+    try:
+        return result.output
+    except Exception:
+        return items
 
 
 @click.command()
@@ -225,6 +331,18 @@ def create_google_keep_note(
     help='Create a text note instead of a checklist note. Default is False (checklist note).',
     show_default=False,
 )
+@click.option(
+    '--ai-filter',
+    type=click.Path(exists=True, dir_okay=False, path_type=pathlib.Path),
+    help='Path to a markdown file with system prompt to filter items via LLM.',
+)
+@click.option(
+    '--ai-model',
+    type=str,
+    default='azure:gpt-4o',
+    show_default=True,
+    help='Model identifier. Prefix with provider (e.g., azure:gpt-4o).',
+)
 @click.argument(
     'trello_board',
     type=str,
@@ -235,6 +353,8 @@ def main(
     title: str,
     impersonated_user_email: str,
     text: bool,
+    ai_filter: pathlib.Path | None,
+    ai_model: str,
     trello_board: str,
     list_items: list[str],
 ):
@@ -247,7 +367,7 @@ def main(
     """
     if not title:
         title = trello_board
-    _execute_main(trello_board, title, impersonated_user_email, text, list_items, credentials)
+    _execute_main(trello_board, title, impersonated_user_email, text, list_items, credentials, ai_filter, ai_model)
 
 
 def _execute_main(
@@ -257,6 +377,8 @@ def _execute_main(
     text: bool,
     list_items: list[str],
     credentials: pathlib.Path,
+    ai_filter: pathlib.Path | None,
+    ai_model: str,
 ):
     """Execute the main application logic.
 
@@ -287,6 +409,9 @@ def _execute_main(
     items = extract_list_items(trello_board, list_items, credentials_path=credentials)
     if items is None:
         raise click.ClickException('Failed to extract items from Trello. Please check your credentials and board name.')
+
+    items = _apply_ai_filter(ai_filter, ai_model, items)
+
     keep_service = get_keep_service(credentials_path=credentials, impersonated_user_email=impersonated_user_email)
     note = create_google_keep_note(keep_service, title, items, text)
     click.secho(f'Google Keep note created: "{note.get("title")}" ({note.get("name")})', fg='green')
